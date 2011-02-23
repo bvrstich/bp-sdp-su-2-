@@ -1157,3 +1157,70 @@ void TPM::in_sp(const char *filename){
    this->symmetrize();
 
 }
+
+/**
+ * Will print out a spin uncoupled version of to a stream
+ */
+void TPM::uncouple_ofstream(ofstream &output) const{
+
+   int a,b,c,d;
+   int s_a,s_b,s_c,s_d;
+
+   double ward_0;
+   double ward_1;
+
+   //the uncoupled row vector i
+   for(int alpha = 0;alpha < M;++alpha)
+      for(int beta = alpha + 1;beta < M;++beta){
+
+         //watch it now, 0 is down, 1 is up.
+         a = alpha/2;
+         s_a = alpha%2;
+
+         b = beta/2;
+         s_b = beta%2;
+
+         //the collom vector j
+         for(int gamma = alpha;gamma < M;++gamma)
+            for(int delta = gamma + 1;delta < M;++delta){
+
+               c = gamma/2;
+               s_c = gamma%2;
+
+               d = delta/2;
+               s_d = delta%2;
+
+               //eerst S = 0 stuk
+               if(s_a != s_b && s_c != s_d){
+
+                  if(s_a == s_c)
+                     ward_0 = 0.5 * (*this)(0,a,b,c,d);
+                  else
+                     ward_0 = -0.5 * (*this)(0,a,b,c,d);
+
+                  //normering
+                  if(a == b)
+                     ward_0 *= std::sqrt(2.0);
+
+                  if(c == d)
+                     ward_0 *= std::sqrt(2.0);
+
+               }
+               else
+                  ward_0 = 0.0;
+
+               //dan S = 1 stuk
+               if( (s_a == s_b) && (s_c == s_d) && (s_a == s_c) )
+                  ward_1 = (*this)(1,a,b,c,d);
+               else if(s_a != s_b && s_c != s_d)
+                  ward_1 = 0.5*(*this)(1,a,b,c,d);
+               else
+                  ward_1 = 0.0;
+
+               output << alpha << "\t" << beta << "\t" << gamma << "\t" << delta << "\t" << ward_0 + ward_1 << std::endl;
+
+            }
+
+      }
+
+}

@@ -5,6 +5,7 @@
 #include <fstream>
 
 using std::ostream;
+using std::ofstream;
 
 #include "BlockMatrix.h"
 
@@ -110,6 +111,8 @@ class TPM : public BlockMatrix {
 
       //input TPM from file
       void in_sp(const char *);
+
+      void uncouple_ofstream(ofstream &output) const;
 
    private:
 

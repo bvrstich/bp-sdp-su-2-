@@ -18,6 +18,8 @@ extern "C" {
    void dsyev_(char *jobz,char *uplo,int *n,double *A,int *lda,double *W,double *work,int *lwork,int *info);
    void dpotrf_(char *uplo,int *n,double *A,int *lda,int *INFO);
    void dpotri_(char *uplo,int *n,double *A,int *lda,int *INFO);
+   void dgetri_(int *n,double *A,int *lda,int *ipiv,double *work,int *lwork,int *info);
+   void dgetrf_(int *m,int *n,double *A,int *lda,int *ipiv,int *info);
 
 }
 
