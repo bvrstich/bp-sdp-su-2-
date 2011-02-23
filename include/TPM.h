@@ -114,6 +114,10 @@ class TPM : public BlockMatrix {
 
       void uncouple_ofstream(ofstream &output) const;
 
+      static void constr_overlap(int,int);
+
+      void S_L(int,const TPM &);
+
    private:
 
       //!static list of dimension [2][dim[i]][2] that takes in a tp index i and a spinquantumnumber S, and returns two sp indices: a = t2s[S][i][0] and b = t2s[S][i][1]
@@ -124,6 +128,9 @@ class TPM : public BlockMatrix {
 
       //!list of 6j symbols needed.
       static double **_6j;
+
+      //!static variables needed for the overlapmatrix
+      static double S_a,S_b,S_c;
 
       //!static counter that counts the number of TPM objects running in the program
       static int counter;

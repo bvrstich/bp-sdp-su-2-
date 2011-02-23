@@ -6,49 +6,7 @@
 
 using std::ostream;
 
-#include "TPM.h"
-#include "PHM.h"
-#include "DPM.h"
-#include "PPHM.h"
-
-//definitions:
-#ifdef PQ
-
-#define __Q_CON
-
-#endif
-
-#ifdef PQG
-
-#define __Q_CON
-#define __G_CON
-
-#endif
-
-#ifdef PQGT1
-
-#define __Q_CON
-#define __G_CON
-#define __T1_CON
-
-#endif
-
-#ifdef PQGT2
-
-#define __Q_CON
-#define __G_CON
-#define __T2_CON
-
-#endif
-
-#ifdef PQGT
-
-#define __Q_CON
-#define __G_CON
-#define __T1_CON
-#define __T2_CON
-
-#endif
+#include "include.h"
 
 class EIG;
 
@@ -94,7 +52,7 @@ class SUP{
       SUP &operator=(const SUP &);
 
       //overload equality operator
-      SUP &operator=(double );
+      SUP &operator=(const double &);
 
       TPM &tpm(int i);
 
@@ -181,8 +139,14 @@ class SUP{
       int gn_pph() const;
 
 #endif
-   
-      void sep_pm(SUP &p,SUP &m);
+
+      LinIneq &gli();
+
+      const LinIneq &gli() const;
+
+      int gnr() const;
+
+      void sep_pm(SUP &,SUP &);
 
    private:
 
@@ -231,6 +195,11 @@ class SUP{
 
 #endif
 
+      //!the object containing the linear constraint info.
+      LinIneq *li;
+
 };
 
 #endif
+
+/* vim: set ts=3 sw=3 expandtab :*/

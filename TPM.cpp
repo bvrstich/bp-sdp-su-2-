@@ -18,6 +18,54 @@ int ***TPM::s2t;
 
 double **TPM::_6j;
 
+double TPM::S_a;
+double TPM::S_b;
+double TPM::S_c;
+
+/**
+ * Will calculate the parameters needed for the overlapmatrix-map: S_a,S_b and S_c.
+ * @param M nr of sp orbitals
+ * @param N nr of particles
+ */
+void TPM::constr_overlap(int M,int N){
+
+   S_a = 1.0;
+   S_b = 0.0;
+   S_c = 0.0;
+
+#ifdef __Q_CON
+
+   S_a += 1.0;
+   S_b += (4.0*N*N + 2.0*N - 4.0*N*M + M*M - M)/(N*N*(N - 1.0)*(N - 1.0));
+   S_c += (2.0*N - M)/((N - 1.0)*(N - 1.0));
+
+#endif
+
+#ifdef __G_CON
+
+   S_a += 4.0;
+   S_c += (2.0*N - M - 2.0)/((N - 1.0)*(N - 1.0));
+
+#endif
+
+#ifdef __T1_CON
+
+   S_a += M - 4.0;
+   S_b += (M*M*M - 6.0*M*M*N -3.0*M*M + 12.0*M*N*N + 12.0*M*N + 2.0*M - 18.0*N*N - 6.0*N*N*N)/( 3.0*N*N*(N - 1.0)*(N - 1.0) );
+   S_c -= (M*M + 2.0*N*N - 4.0*M*N - M + 8.0*N - 4.0)/( 2.0*(N - 1.0)*(N - 1.0) );
+
+#endif
+
+#ifdef __T2_CON
+
+   S_a += 5.0*M - 8.0;
+   S_b += 2.0/(N - 1.0);
+   S_c += (2.0*N*N + (M - 2.0)*(4.0*N - 3.0) - M*M)/(2.0*(N - 1.0)*(N - 1.0));
+
+#endif
+
+}
+
 /**
  * standard constructor for a spinsymmetrical tp matrix: constructs BlockMatrix object with 2 blocks, for S = 0 or 1,
  * if counter == 0, allocates and constructs the lists containing the relationship between sp and tp basis.
@@ -33,8 +81,13 @@ TPM::TPM(int M,int N) : BlockMatrix(2) {
    this->setMatrixDim(0,M*(M + 2)/8,1);
    this->setMatrixDim(1,M*(M - 2)/8,3);
 
-   if(counter == 0)
+   if(counter == 0){
+
+      constr_overlap(M,N);
+
       constr_lists();
+
+   }
 
    ++counter;
 
@@ -49,9 +102,6 @@ TPM::TPM(const TPM &tpm_c) : BlockMatrix(tpm_c){
 
    this->N = tpm_c.gN();
    this->M = tpm_c.gM();
-
-   if(counter == 0)
-      constr_lists();
 
    ++counter;
 
@@ -630,42 +680,7 @@ int TPM::solve(TPM &b,const SUP &D){
  */
 void TPM::S(int option,const TPM &tpm_d){
 
-   double a = 1.0;
-   double b = 0.0;
-   double c = 0.0;
-
-#ifdef __Q_CON
-
-   a += 1.0;
-   b += (4.0*N*N + 2.0*N - 4.0*N*M + M*M - M)/(N*N*(N - 1.0)*(N - 1.0));
-   c += (2.0*N - M)/((N - 1.0)*(N - 1.0));
-
-#endif
-
-#ifdef __G_CON
-
-   a += 4.0;
-   c += (2.0*N - M - 2.0)/((N - 1.0)*(N - 1.0));
-
-#endif
-
-#ifdef __T1_CON
-
-   a += M - 4.0;
-   b += (M*M*M - 6.0*M*M*N -3.0*M*M + 12.0*M*N*N + 12.0*M*N + 2.0*M - 18.0*N*N - 6.0*N*N*N)/( 3.0*N*N*(N - 1.0)*(N - 1.0) );
-   c -= (M*M + 2.0*N*N - 4.0*M*N - M + 8.0*N - 4.0)/( 2.0*(N - 1.0)*(N - 1.0) );
-
-#endif
-
-#ifdef __T2_CON
-   
-   a += 5.0*M - 8.0;
-   b += 2.0/(N - 1.0);
-   c += (2.0*N*N + (M - 2.0)*(4.0*N - 3.0) - M*M)/(2.0*(N - 1.0)*(N - 1.0));
-
-#endif
-
-   this->Q(option,a,b,c,tpm_d);
+   this->Q(option,S_a,S_b,S_c,tpm_d);
 
 }
 
@@ -708,6 +723,10 @@ void TPM::collaps(int option,const SUP &S){
    *this += hulp;
 
 #endif
+   
+   //and last but not least, the linear constraints
+   for(int i = 0;i < S.gli().gnr();++i)
+      this->daxpy(S.gli().gproj(i),S.gli()[i].gI());
 
    if(option == 1)
       this->proj_Tr();
@@ -1222,5 +1241,181 @@ void TPM::uncouple_ofstream(ofstream &output) const{
             }
 
       }
+
+}
+
+/**
+ * ( Overlapmatrix of the U-basis ) - map, maps a traceless TPM onto a different traceless TPM, this map is actually a Q-like map
+ * for which the paramaters a and c are calculated in primal_dual.pdf. Since it is a Q-like map the inverse
+ * can be taken as well.
+ * @param option = 1 direct overlapmatrix-map is used , = -1 inverse overlapmatrix map is used
+ * @param tpm_d the input TPM
+ */
+void TPM::S_L(int option,const TPM &tpm_d){
+
+   LinIneq li(M,N);
+   li.fill(tpm_d);
+
+   int sign;
+   double norm;
+
+   if(option == -1){
+
+      //first make some parameters needed for the inverse:
+      double A = li.ga();
+      double C = li.gc();
+
+      double kappa = A - C*(M - 2.0);
+
+      double alpha[li.gnr()];
+
+      for(int k = 0;k < li.gnr();++k)
+         alpha[k] = li.alpha(k);
+
+      //make the scaled bar of tpm_d
+      SPM spm(M,N);
+      spm.bar(C/(A*kappa),tpm_d);
+
+      //loop over the spinblocks
+      for(int S = 0;S < 2;++S){
+
+         //symmetry or antisymmetry?
+         sign = 1 - 2*S;
+
+         for(int i = 0;i < this->gdim(S);++i){
+
+            int a = t2s[S][i][0];
+            int b = t2s[S][i][1];
+
+            for(int j = i;j < this->gdim(S);++j){
+
+               int c = t2s[S][j][0];
+               int d = t2s[S][j][1];
+
+               //determine the norm for the basisset
+               norm = 1.0;
+
+               if(S == 0){
+
+                  if(a == b)
+                     norm /= std::sqrt(2.0);
+
+                  if(c == d)
+                     norm /= std::sqrt(2.0);
+
+               }
+
+               //regular Q-like part:
+
+               //tp
+               (*this)(S,i,j) = tpm_d(S,i,j)/A;
+
+               //3 sp
+               if(a == c)
+                  (*this)(S,i,j) += norm*spm(b,d);
+
+               if(b == c)
+                  (*this)(S,i,j) += sign*norm*spm(a,d);
+
+               if(a == d)
+                  (*this)(S,i,j) += sign*norm*spm(b,c);
+
+               if(b == d)
+                  (*this)(S,i,j) += norm*spm(a,c);
+
+               //constraint part:
+               for(int k = 0;k < li.gnr();++k){
+
+                  //tp part
+                  (*this)(S,i,j) -= alpha[k]/(4.0*A) * li[k].gI()(S,i,j);
+
+                  //3 sp
+                  if(a == c)
+                     (*this)(S,i,j) -= norm*C/(4.0*A*kappa) * alpha[k] * li[k].gI_bar()(b,d);
+
+                  if(b == c)
+                     (*this)(S,i,j) -= sign*norm*C/(4.0*A*kappa) * alpha[k] * li[k].gI_bar()(a,d);
+
+                  if(a == d)
+                     (*this)(S,i,j) -= sign*norm*C/(4.0*A*kappa) * alpha[k] * li[k].gI_bar()(b,c);
+
+                  if(b == d)
+                     (*this)(S,i,j) -= norm*C/(4.0*A*kappa) * alpha[k] * li[k].gI_bar()(a,c);
+
+               }
+
+            }
+         }
+
+      }
+
+   }
+   else{
+
+      double A = li.ga();
+      double C = li.gc();
+
+      SPM spm(M,N);
+
+      //construct de spm met schaling C
+      spm.bar(C,tpm_d);
+
+      //loop over the spinblocks
+      for(int S = 0;S < 2;++S){
+
+         //symmetry or antisymmetry?
+         sign = 1 - 2*S;
+
+         for(int i = 0;i < this->gdim(S);++i){
+
+            int a = t2s[S][i][0];
+            int b = t2s[S][i][1];
+
+            for(int j = i;j < this->gdim(S);++j){
+
+               int c = t2s[S][j][0];
+               int d = t2s[S][j][1];
+
+               //determine the norm for the basisset
+               norm = 1.0;
+
+               if(S == 0){
+
+                  if(a == b)
+                     norm /= std::sqrt(2.0);
+
+                  if(c == d)
+                     norm /= std::sqrt(2.0);
+
+               }
+
+               //tp
+               (*this)(S,i,j) = A*tpm_d(S,i,j);
+
+               //3 sp
+               if(a == c)
+                  (*this)(S,i,j) -= norm*spm(b,d);
+
+               if(b == c)
+                  (*this)(S,i,j) -= norm*sign*spm(a,d);
+
+               if(a == d)
+                  (*this)(S,i,j) -= norm*sign*spm(b,c);
+
+               if(b == d)
+                  (*this)(S,i,j) -= norm*spm(a,c);
+
+               //constraint
+               for(int k = 0;k < li.gnr();++k)
+                  (*this)(S,i,j) += li.gproj(k) * li[k].gI()(S,i,j);
+
+            }
+         }
+
+      }
+
+   }
+
+   this->symmetrize();
 
 }

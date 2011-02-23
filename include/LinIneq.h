@@ -96,6 +96,8 @@ class LinIneq{
 
       static void print_coef();
 
+      void sep_pm(LinIneq &,LinIneq &);
+
    private:
 
       //!LinCon array containing the different LinCon objects

@@ -79,6 +79,8 @@ int main(int argc,char **argv)
 
    cout << "Starting with M=" << M << " N=" << N << " U=" << U << endl;
 
+    LinIneq::init(M,N,1);
+
    //hamiltoniaan
    TPM ham(M,N);
    ham.hubbard(U);
@@ -151,7 +153,7 @@ int main(int argc,char **argv)
 
          b.daxpy(-mazzy/sigma,ham);
 
-         hulp.S(-1,b);
+         hulp.S_L(-1,b);
 
          //hulp is the matrix containing the gamma_i's
          hulp.proj_Tr();
@@ -205,6 +207,8 @@ int main(int argc,char **argv)
    cout << "pd gap: " << Z.ddot(X) << endl;
    cout << "dual conv: " << D_conv << endl;
    cout << "primal conv: " << P_conv << endl;
+
+   LinIneq::clean();
 
    return 0;
 
