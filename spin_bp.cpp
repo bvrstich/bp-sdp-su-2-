@@ -120,12 +120,10 @@ int main(int argc,char **argv)
    double D_conv(1.0),P_conv(1.0);
 
    // mazziotti uses 1.6 for this
-   double mazzy = 2.0;
+   double mazzy = 1.6;
 
    int iter_dual,iter_primal(0);
    int max_iter = 1;
-
-   int change_sigma = 20;
 
    while(P_conv > tolerance || D_conv > tolerance){
 
@@ -192,15 +190,7 @@ int main(int argc,char **argv)
       W -= Z;
 
       P_conv = sqrt(W.ddot(W));
-/*
-      if(iter_primal == change_sigma){
 
-         sigma *= P_conv/D_conv;
-
-         iter_primal = 0;
-
-      }
-*/
       if(D_conv < P_conv)
          sigma *= 1.01;
       else

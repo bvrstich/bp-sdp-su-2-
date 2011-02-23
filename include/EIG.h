@@ -115,6 +115,8 @@ class EIG{
 
 #ifdef __T2_CON
 
+   BlockVector<PPHM> &pphv();
+
    const BlockVector<PPHM> &pphv() const;
 
 #endif
