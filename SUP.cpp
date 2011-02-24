@@ -390,17 +390,6 @@ LinIneq &SUP::gli(){
 
 }
 
-/**
- * Initialization of the SUP matrix S, is just u^0: see primal_dual.pdf for more information
- */
-void SUP::init_S(){
-
-   (*SZ_tp[0]).init();
-
-   this->fill();
-
-}
-
 ostream &operator<<(ostream &output,const SUP &SZ_p){
 
    output << (*SZ_p.SZ_tp[0]) << std::endl;
@@ -461,21 +450,6 @@ void SUP::fill_Random(){
 #endif
 
    li->fill_Random();
-
-}
-
-/**
- * Initialisation for dual SUP matrix Z, see primal_dual.pdf for info.
- */
-void SUP::init_Z(double alpha,const TPM &ham,const SUP &u_0)
-{
-   this->fill_Random();
-
-   //nog een eenheidsmatrix maal constante bijtellen zodat Z sterk positief definiet is:
-   this->daxpy(alpha,u_0); 
-
-   //en projecteren!
-   this->proj_C(ham);
 
 }
 
