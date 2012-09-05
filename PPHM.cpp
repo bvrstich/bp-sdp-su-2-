@@ -5,8 +5,8 @@
 
 using std::ostream;
 using std::ofstream;
-using std::ifstream;
 using std::endl;
+using std::cout;
 
 #include "include.h"
 
@@ -29,11 +29,11 @@ PPHM::PPHM(int M,int N) : BlockMatrix(2) {
    this->M = M;
 
    //set the dimension and the degeneracies of the blocks
-   this->setMatrixDim(0,M*M*M/8,2);//S=1/2 block
+   this->setMatrixDim(0,M*M*M/8 + M/2,2);//S=1/2 block
    this->setMatrixDim(1,M*M*(M - 2)/16,4);//S=3/2 block
 
    if(counter == 0)//make the lists
-      construct_lists();
+      this->construct_lists();
 
    ++counter;
 
@@ -50,7 +50,7 @@ PPHM::PPHM(const PPHM &pphm_c) : BlockMatrix(pphm_c) {
    this->M = pphm_c.gM();
 
    if(counter == 0)
-      construct_lists();
+      this->construct_lists();
 
    ++counter;
 
@@ -256,7 +256,7 @@ int PPHM::gM() const{
 }
 
 /**
- * access the elements of the matrix in sp mode, special symmetry and antisymmetry relations are automatically accounted for:\n\n
+ * access the elements of the pph-part of the matrix in sp mode, special symmetry and antisymmetry relations are automatically accounted for:\n\n
  * @param S The block index, when == 0 then access the block S = 1/2, for block == 1 we access the S = 3/2.
  * @param S_ab The intermediate spinquantumnumber of a and b.
  * @param a first sp index that forms the pph row index i together with b, c and S_ab in block S
@@ -268,7 +268,7 @@ int PPHM::gM() const{
  * @param z third sp index that forms the pph column index j together with d, e and S_de in block S
  * @return the number on place PPHM(S,i,j) with the right phase.
  */
-double PPHM::operator()(int S,int S_ab,int a,int b,int c,int S_de,int d,int e,int z) const {
+double PPHM::pph(int S,int S_ab,int a,int b,int c,int S_de,int d,int e,int z) const {
 
    int i,j;
 
@@ -283,6 +283,42 @@ double PPHM::operator()(int S,int S_ab,int a,int b,int c,int S_de,int d,int e,in
       return 0;
 
    return phase_i*phase_j* (*this)(S,i,j);
+
+}
+
+/**
+ * access the elements of the w-part of the matrix in sp mode, special symmetry and antisymmetry relations are automatically accounted for:\n\n
+ * @param S_ab The intermediate spinquantumnumber of a and b.
+ * @param a first sp index that forms the pph row index i together with b, c and S_ab in block S
+ * @param b second sp index that forms the pph row index i together with a, c and S_ab in block S
+ * @param c third sp index that forms the pph row index i together with a, b and S_ab in block S
+ * @param n sp index of the prime part
+ * @return the number on place PPHM(S,i,j) with the right phase.
+ */
+double PPHM::w(int S_ab,int a,int b,int c,int n) const {
+
+   int i,j;
+
+   int phase_i = get_inco(0,S_ab,a,b,c,i);
+
+   if(phase_i == 0)
+      return 0;
+
+   j = M*M*M/8 + n;
+
+   return phase_i * (*this)(0,i,j);
+
+}
+
+/**
+ * access the elements of the sp-part of the matrix, special symmetry and antisymmetry relations are automatically accounted for:\n\n
+ * @param m column sp index of the prime part
+ * @param n column sp index of the prime part
+ * @return the number on place PPHM(S,i,j) with the right phase.
+ */
+double PPHM::sp(int m,int n) const {
+
+   return (*this)(0,m + M*M*M/8,n + M*M*M/8);
 
 }
 
@@ -361,7 +397,7 @@ int PPHM::get_inco(int S,int S_ab,int a,int b,int c,int &i){
 }
 
 /**
- * The spincoupled T2 map, maps a TPM onto a PPHM object. See notes for more info
+ * The spincoupled T2' map, maps a TPM onto a PPHM object. See notes for more info
  * @param tpm Input TPM matrix
  */
 void PPHM::T(const TPM &tpm){
@@ -374,7 +410,8 @@ void PPHM::T(const TPM &tpm){
    double norm_ab,norm_de;
    int sign_ab,sign_de;
 
-   for(int i = 0;i < this->gdim(0);++i){
+   //first the S=1/2 part: difficult because differs from T2
+   for(int i = 0;i < M*M*M/8;++i){
 
       S_ab = pph2s[0][i][0];
 
@@ -389,7 +426,7 @@ void PPHM::T(const TPM &tpm){
       if(a == b)
          norm_ab /= std::sqrt(2.0);
 
-      for(int j = i;j < this->gdim(0);++j){
+      for(int j = i;j < M*M*M/8;++j){
 
          S_de = pph2s[0][j][0];
 
@@ -403,7 +440,6 @@ void PPHM::T(const TPM &tpm){
 
          if(d == e)
             norm_de /= std::sqrt(2.0);
-
 
          //start the map:
          (*this)(0,i,j) = 0.0;
@@ -509,6 +545,24 @@ void PPHM::T(const TPM &tpm){
 
       }
 
+      //non-pph part, i.e. the w part of the T2' map
+      for(int j = M*M*M/8;j < gdim(0);++j){
+
+         int n = j - M*M*M/8;
+
+         (*this)(0,i,j) = 0.0;
+
+         if(n == c)
+            (*this)(0,i,j) = -std::sqrt(2.0 * S_ab + 1.0) * sign_ab * tpm(S_ab,a,b,n,c);
+         else
+            (*this)(0,i,j) = -std::sqrt(S_ab + 0.5) * sign_ab * tpm(S_ab,a,b,n,c);
+
+      }
+
+      for(int i = M*M*M/8;i < gdim(0);++i)
+         for(int j = i;j < gdim(0);++j)
+            (*this)(0,i,j) = spm(i - M*M*M/8,j - M*M*M/8);
+
    }
 
    //the easier S = 3/2 part:
@@ -597,71 +651,80 @@ void PPHM::T(const TPM &tpm){
 
 }
 
-ostream &operator<<(ostream &output,const PPHM &pphm_p){
+ostream &operator<<(ostream &output,PPHM &pphm_p){
 
-   for(int S = 0;S < pphm_p.gnr();++S){
+   output << "S = 1/2\t" << pphm_p.gdim(0) << "\t" << pphm_p.gdeg(0) << std::endl;
+   output << std::endl;
 
-      output << S << "\t" << pphm_p.gdim(S) << "\t" << pphm_p.gdeg(S) << std::endl;
-      output << std::endl;
+   for(int i = 0;i < pphm_p.M*pphm_p.M*pphm_p.M/8;++i){
 
-      for(int i = 0;i < pphm_p.gdim(S);++i)
-         for(int j = 0;j < pphm_p.gdim(S);++j){
+      for(int j = 0;j < pphm_p.M*pphm_p.M*pphm_p.M/8;++j){
 
-            output << S << "\t" << i << "\t" << j << "\t|\t" << 
-            
-               pphm_p.pph2s[S][i][0] << "\t" << pphm_p.pph2s[S][i][1] << "\t" << pphm_p.pph2s[S][i][2] << "\t" << pphm_p.pph2s[S][i][3] << 
+         output << 0 << "\t" << i << "\t" << j << "\t||\t(" << 
 
-               "\t" << pphm_p.pph2s[S][j][0] << "\t" << pphm_p.pph2s[S][j][1] << "\t" << pphm_p.pph2s[S][j][2] << "\t" << pphm_p.pph2s[S][j][3] 
-               
-               << "\t" << pphm_p(S,i,j) << endl;
+            pphm_p.pph2s[0][i][0] << ")\t" << pphm_p.pph2s[0][i][1] << "\t" << pphm_p.pph2s[0][i][2] << "\t" << pphm_p.pph2s[0][i][3] << 
 
-         }
+            "\t|\t(" << pphm_p.pph2s[0][j][0] << ")\t" << pphm_p.pph2s[0][j][1] << "\t" << pphm_p.pph2s[0][j][2] << "\t" << pphm_p.pph2s[0][j][3] 
 
-      output << endl;
+            << "\t|\t" << pphm_p(0,i,j) << endl;
+
+      }
+
+      for(int j = pphm_p.M*pphm_p.M*pphm_p.M/8;j < pphm_p.gdim(0);++j){
+
+         output << 0 << "\t" << i << "\t" << j << "\t||\t(" << 
+
+            pphm_p.pph2s[0][i][0] << ")\t" << pphm_p.pph2s[0][i][1] << "\t" << pphm_p.pph2s[0][i][2] << "\t" << pphm_p.pph2s[0][i][3] << 
+
+            "\t|\t" << j - pphm_p.M*pphm_p.M*pphm_p.M/8 << "\t|\t" << pphm_p(0,i,j) << endl;
+
+      }
 
    }
+
+   for(int i = pphm_p.M*pphm_p.M*pphm_p.M/8;i < pphm_p.gdim(0);++i){
+
+      for(int j = 0;j < pphm_p.M*pphm_p.M*pphm_p.M/8;++j){
+
+         output << 0 << "\t" << i << "\t" << j << "\t||\t" << i - pphm_p.M*pphm_p.M*pphm_p.M/8 << "\t|\t("
+         
+            << pphm_p.pph2s[0][j][0] << ")\t" << pphm_p.pph2s[0][j][1] << "\t" << pphm_p.pph2s[0][j][2] << "\t" << pphm_p.pph2s[0][j][3] 
+
+            << "\t|\t" << pphm_p(0,i,j) << endl;
+
+      }
+
+      for(int j = pphm_p.M*pphm_p.M*pphm_p.M/8;j < pphm_p.gdim(0);++j){
+
+         output << 0 << "\t" << i << "\t" << j << "\t||\t" << i - pphm_p.M*pphm_p.M*pphm_p.M/8 << "\t|\t"
+
+            "\t|\t" << j - pphm_p.M*pphm_p.M*pphm_p.M/8 << "\t|\t" << pphm_p(0,i,j) << endl;
+
+      }
+
+   }
+
+   output << "S = 3/2\t" << pphm_p.gdim(1) << "\t" << pphm_p.gdeg(1) << std::endl;
+   output << std::endl;
+
+   for(int i = 0;i < pphm_p.gdim(1);++i){
+
+      for(int j = 0;j < pphm_p.gdim(1);++j){
+
+         output << 1 << "\t" << i << "\t" << j << "\t||\t(" << 
+
+            pphm_p.pph2s[1][i][0] << ")\t" << pphm_p.pph2s[1][i][1] << "\t" << pphm_p.pph2s[1][i][2] << "\t" << pphm_p.pph2s[1][i][3] << 
+
+            "\t|\t(" << pphm_p.pph2s[1][j][0] << ")\t" << pphm_p.pph2s[1][j][1] << "\t" << pphm_p.pph2s[1][j][2] << "\t" << pphm_p.pph2s[1][j][3] 
+
+            << "\t|\t" << pphm_p(1,i,j) << endl;
+
+      }
+
+   }
+
+   output << endl;
 
    return output;
-
-}
-
-/**
- * Input from file, with sp indices as row and column indices
- * @param filename Name of the inputfile
- */
-void PPHM::in_sp(const char *filename){
-
-   ifstream input(filename);
-
-   int S_ab,S_de;
-   int a,b,c,d,e,z;
-   int S;
-
-   double value;
-
-   int i,j;
-
-   (*this) = 0;
-
-   while(input >> S >> S_ab >> a >> b >> c >> S_de >> d >> e >> z >> value){
-
-      if(S == 0){
-
-         i = s2pph[S][S_ab][a][b][(-c + M/2)%(M/2)];
-         j = s2pph[S][S_de][d][e][(-z + M/2)%(M/2)];
-
-      }
-      else{
-
-         i = s2pph[S][0][a][b][(-c + M/2)%(M/2)];
-         j = s2pph[S][0][d][e][(-z + M/2)%(M/2)];
-
-      }
-
-      (*this)(S,i,j) = value;
-
-   }
-
-   this->symmetrize();
 
 }

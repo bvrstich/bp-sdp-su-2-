@@ -25,7 +25,7 @@ class PPHM : public BlockMatrix {
     * @param output The stream to which you are writing (e.g. cout)
     * @param pphm_p the PPHM you want to print
     */
-   friend ostream &operator<<(ostream &output,const PPHM &pphm_p);
+   friend ostream &operator<<(ostream &output,PPHM &pphm_p);
 
    public:
       
@@ -45,7 +45,11 @@ class PPHM : public BlockMatrix {
       using BlockMatrix::operator();
 
       //easy to access the numbers, in sp mode
-      double operator()(int S,int S_ab,int a,int b,int c,int S_de,int d,int e,int f) const;
+      double pph(int S,int S_ab,int a,int b,int c,int S_de,int d,int e,int f) const;
+
+      double w(int S_ab,int a,int b,int c,int n) const;
+
+      double sp(int m,int n) const;
 
       static int get_inco(int S,int S_ab,int a,int b,int c,int &i);
 
@@ -58,15 +62,16 @@ class PPHM : public BlockMatrix {
       //maak een PPHM van een TPM via de T2 conditie
       void T(const TPM &);
 
-      //input PPHM from file
-      void in_sp(const char *);
+      void min_tunit(double );
+
+      double skew_trace();
 
    private:
 
       //!static counter that counts the number of PPHM objects running in the program
       static int counter;
 
-      //!static list of dimension [2][dim[i]][4] that takes in a pph index i and a blockindex for spin, and returns three sp indices: a = pph2s[S][i][1], b = pph2s[S][i][2] and c = pph2s[S][i][3] and an intermediate spin S_ab = pph2s[S][i][0]
+      //!static list of dimension [2][dim[i]][3] that takes in a pph index i and a blockindex for spin, and returns three sp indices: a = pph2s[S][i][1], b = pph2s[S][i][2] and c = pph2s[S][i][3] and an intermediate spin S_ab = pph2s[S][i][0]
       static int ***pph2s;
 
       //!static list of dimension [2][2][M/2][M/2][M/2] that takes three sp indices a,b and c, a blockindex S for total spin, and an intermediate spinindex S_ab, and returns a pph index i: i = s2pph[S][S_ab][a][b][c]

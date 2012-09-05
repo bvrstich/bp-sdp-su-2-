@@ -183,13 +183,13 @@ void SPM::bar(double scale,const PPHM &pphm){
             for(int l = 0;l < M/2;++l){
 
                for(int k = 0;k < l;++k)//k < l
-                  (*this)(a,c) += pphm(0,S_lk,l,k,a,S_lk,l,k,c);
+                  (*this)(a,c) += pphm.pph(0,S_lk,l,k,a,S_lk,l,k,c);
 
                //k == l norm correction
-               (*this)(a,c) += 2.0 * pphm(0,S_lk,l,l,a,S_lk,l,l,c);
+               (*this)(a,c) += 2.0 * pphm.pph(0,S_lk,l,l,a,S_lk,l,l,c);
 
                for(int k = l + 1;k < M/2;++k)//k > l
-                  (*this)(a,c) += pphm(0,S_lk,l,k,a,S_lk,l,k,c);
+                  (*this)(a,c) += pphm.pph(0,S_lk,l,k,a,S_lk,l,k,c);
 
             }
          }
@@ -197,7 +197,7 @@ void SPM::bar(double scale,const PPHM &pphm){
          //then S = 3/2 part:
          for(int l = 0;l < M/2;++l)
             for(int k = 0;k < M/2;++k)
-               (*this)(a,c) += 2.0 * pphm(1,1,l,k,a,1,l,k,c);
+               (*this)(a,c) += 2.0 * pphm.pph(1,1,l,k,a,1,l,k,c);
 
          //scaling
          (*this)(a,c) *= scale;
